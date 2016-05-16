@@ -36,20 +36,20 @@ public class NodeNetworks {
         for (int i = 0; i < inputs; i++) {
             inputNodes.add(new Node(i));
         }
-        layers.add(new NodeLayer(inputNodes));
+        layers.add(new NodeLayer(0, inputNodes));
         // Construct the hidden layer.
         List<Node> hiddenNodes = new ArrayList<>();
         for (int i = 0; i < hiddens; i++) {
             hiddenNodes.add(fullyConnect(i, layers.get(0), ActivationFunction.LINEAR));
         }
-        layers.add(new NodeLayer(hiddenNodes));
+        layers.add(new NodeLayer(1, hiddenNodes));
         // Construct the output layer.
         List<Node> outputNodes = new ArrayList<>();
         for (int i = 0; i < outputs; i++) {
             ActivationFunction activation = ActivationFunction.LOGISTIC;//(i == outputs - 1) ?
             outputNodes.add(fullyConnect(i, layers.get(1), activation));
         }
-        layers.add(new NodeLayer(outputNodes));
+        layers.add(new NodeLayer(2, outputNodes));
         // Output layer.
         NodeNetwork network = new NodeNetwork(layers);
         return network;
@@ -70,7 +70,7 @@ public class NodeNetworks {
         training_in.add(Arrays.asList(new Double[]{1.0, 0.0}));
         training_labels.add(Arrays.asList(new Double[]{1.0}));
 
-        double learningRate = 0.01;
+        double learningRate = 0.0001;
         double error = 0;
         Random r = new Random();
         System.out.println("epoch error");

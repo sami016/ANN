@@ -6,21 +6,30 @@
 package uk.co.samholder.annie;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
  *
  * @author sam
  */
-public class NodeNetwork {
+public class NodeNetwork implements Iterable<NodeLayer> {
 
     private List<NodeLayer> layers;
 
     public NodeNetwork() {
+        this.layers = new ArrayList<>();
     }
 
     public NodeNetwork(List<NodeLayer> layers) {
         this.layers = layers;
+    }
+
+    public NodeNetwork(NodeLayer... layers) {
+        this();
+        for (NodeLayer layer : layers) {
+            this.layers.add(layer);
+        }
     }
 
     public NodeNetwork clone() {
@@ -89,9 +98,9 @@ public class NodeNetwork {
         // Create sum from all connected nodes.
         for (int link : node.links()) {
             if (training) {
-                previousLayer.get(link).addErrorNode(node.getId());
+                previousLayer.get(link).registerDownstreamNode(node.getId());
             }
-            sum += node.getLinkStrength(link) * previousLayer.get(link).getOutput();
+            sum += node.getUpstreamLinkStrength(link) * previousLayer.get(link).getOutput();
         }
         // apply the activation function.
         double activation = node.getActivation().apply(sum);
@@ -114,51 +123,51 @@ public class NodeNetwork {
         for (int i = 0; i < outputLayer.size(); i++) {
             // Calculate error on the ith output.
             double error = correct.get(i) - output.get(i);
+            System.out.println("error " + i + " = " + error + "    = " + correct.get(i) + " - " + output.get(i));
             // Set the delta to the error in dimension i multiplied by the activation derivative of the input.
             Node node = outputLayer.get(i);
             node.setDelta(error * node.getActivation().applyDerivative(node.getInput()));
         }
-        // Recursive layer errors.
-        for (int l = layers.size() - 2; l > 0; l--) {
-            NodeLayer layer = layers.get(l);
-            // Iterate over nodes in a layer.
-            for (int i = 0; i < layer.size(); i++) {
-                Node node = layer.get(i);
-                float nodeError = 0;
-                // Accumulate error from all errors the node contributes to downstream.
-                for (int errorSourceIndex : node.errorNodes()) {
-                    Node downstreamNode = layers.get(l + 1).get(errorSourceIndex);
-                    // Add the error from the downstream node, times the connection strength to this node.
-                    nodeError += downstreamNode.getDelta() * downstreamNode.getLinkStrength(i);
+
+        NodeLayer layer = outputLayer.getUpstream(this);
+        while (layer != getInputLayer()) {
+            for (Node node : layer) {
+                double sum = 0;
+                for (Node downstream : node.downstreamNodes(this, layer)) {
+                    sum += downstream.getDelta() * downstream.getUpstreamLinkStrength(node.getId());
                 }
-                // Multiply by the activation derivative of the input.
-                nodeError *= node.getActivation().applyDerivative(node.getInput());
-                node.setDelta(nodeError);
+                node.setDelta(sum * node.getActivation().applyDerivative(node.getInput()));
             }
+            layer = layer.getUpstream(this);
         }
     }
 
     private void updateParameters(double learningRate) {
-        for (int layerIndex = 1; layerIndex < layers.size(); layerIndex++) {
-            NodeLayer layer = layers.get(layerIndex);
-
-            for (int nodeIndex = 1; nodeIndex < layer.size(); nodeIndex++) {
-                Node node = layer.get(nodeIndex);
-                double delta = node.getDelta();
-                node.offsetBias(delta * learningRate);
-
-                for (int link : node.links()) {
-                    Node sourceNode = layers.get(layerIndex - 1).get(link);
-                    node.offsetWeight(link, delta * sourceNode.getOutput() * learningRate);
+        for (NodeLayer layer : this) {
+            if (layer == getInputLayer()) {
+                continue;
+            }
+            for (Node node : layer) {
+                System.out.println("updating node " + node.getId() + " on layer " + layer.getId());
+                System.out.println("\t delta: " + node.getDelta());
+                double oldBias = node.getBias();
+                node.offsetBias(node.getDelta() * learningRate);
+                System.out.println("\t bias: " + oldBias + " -> " + node.getBias() + "(+" + (node.getDelta() * learningRate) + ")");
+                for (Node upstream : node.upstreamNodes(this, layer)) {
+                    double oldW = node.getUpstreamLinkStrength(upstream);
+                    node.offsetWeight(upstream.getId(), learningRate * node.getDelta() * upstream.getOutput());
+                    System.out.println("\t w " + upstream.getId() + ": " + oldW + " -> " + node.getUpstreamLinkStrength(upstream) + "    (+" + (learningRate * node.getDelta() * upstream.getOutput()) + ")");
+                    System.out.println("\t\tin " + upstream.getOutput());
+                    System.out.println("\t\tlr " + learningRate);
                 }
             }
         }
     }
 
     public void trainExample(List<Double> inputs, List<Double> correct, double learningRate) {
+        System.out.println("training example... " + Data.toString(inputs) + " -> " + Data.toString(correct));
         evaluate(inputs, true);
         backPropogate(correct);
-
         updateParameters(learningRate);
     }
 
@@ -191,6 +200,15 @@ public class NodeNetwork {
                 System.out.println("\tin:" + node.getInput() + " out:" + node.getOutput() + "     delta:" + node.getDelta());
             }
         }
+    }
+
+    public NodeLayer getLayer(int i) {
+        return layers.get(i);
+    }
+
+    @Override
+    public Iterator<NodeLayer> iterator() {
+        return layers.iterator();
     }
 
 }

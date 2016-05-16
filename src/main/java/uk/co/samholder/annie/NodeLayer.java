@@ -6,22 +6,38 @@
 package uk.co.samholder.annie;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  *
  * @author sam
  */
-public class NodeLayer {
+public class NodeLayer implements Iterable<Node> {
 
+    private int id;
     private List<Node> nodes;
 
-    public NodeLayer(List<Node> nodes) {
+    public NodeLayer(int id, List<Node> nodes) {
+        this.id = id;
         this.nodes = nodes;
     }
 
-    public NodeLayer() {
-        this(new ArrayList<>());
+    public NodeLayer(int id, Node... nodes) {
+        this(id);
+        for (Node node : nodes) {
+            this.nodes.add(node);
+        }
+    }
+
+    public NodeLayer(int id) {
+        this(id, new ArrayList<>());
+    }
+
+    public int getId() {
+        return id;
     }
 
     public int size() {
@@ -32,9 +48,26 @@ public class NodeLayer {
         return nodes.get(i);
     }
 
+    public Set<Node> get(Set<Integer> errorNodes) {
+        return errorNodes.stream().map(id -> get(id)).collect(Collectors.toSet());
+    }
+
+    public NodeLayer getUpstream(NodeNetwork network) {
+        return network.getLayer(id - 1);
+    }
+
+    public NodeLayer getDownstream(NodeNetwork network) {
+        return network.getLayer(id + 1);
+    }
+
     public NodeLayer clone() {
         List<Node> nodesCopy = new ArrayList<>(nodes);
-        return new NodeLayer(nodesCopy);
+        return new NodeLayer(id, nodesCopy);
+    }
+
+    @Override
+    public Iterator<Node> iterator() {
+        return nodes.iterator();
     }
 
 }

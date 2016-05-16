@@ -22,7 +22,7 @@ public class Node {
     private double bias;
     private ActivationFunction activation;
 
-    private Set<Integer> errorNodes;
+    private Set<Integer> downstreamNodes;
 
     private double input;
     private double output;
@@ -33,6 +33,7 @@ public class Node {
         this.id = id;
         connections = new TreeMap<>();
         this.bias = 0f;
+        downstreamNodes = new TreeSet<>();
     }
 
     public Node(int id, Map<Integer, Double> connections, double bias, ActivationFunction activation) {
@@ -40,6 +41,7 @@ public class Node {
         this.connections = connections;
         this.bias = bias;
         this.activation = activation;
+        downstreamNodes = new TreeSet<>();
     }
 
     public int getId() {
@@ -54,8 +56,12 @@ public class Node {
         return connections.keySet();
     }
 
-    public double getLinkStrength(int linkNumber) {
+    public double getUpstreamLinkStrength(int linkNumber) {
         return connections.get(linkNumber);
+    }
+
+    public double getUpstreamLinkStrength(Node node) {
+        return getUpstreamLinkStrength(node.getId());
     }
 
     public double getBias() {
@@ -107,15 +113,30 @@ public class Node {
         this.inputNode = false;
     }
 
-    public void addErrorNode(int i) {
-        if (errorNodes == null) {
-            errorNodes = new TreeSet<>();
-        }
-        errorNodes.add(i);
+    public void registerDownstreamNode(int i) {
+        downstreamNodes.add(i);
     }
 
-    public Set<Integer> errorNodes() {
-        return errorNodes;
+    /**
+     * Get the downstream nodes. i.e. the nodes which this node feeds into.
+     *
+     * @param network
+     * @param layer
+     * @return
+     */
+    public Set<Node> downstreamNodes(NodeNetwork network, NodeLayer layer) {
+        return layer.getDownstream(network).get(downstreamNodes);
+    }
+
+    /**
+     * Get the upstream nodes. i.e. the nodes which feed into this node.
+     *
+     * @param network
+     * @param layer
+     * @return
+     */
+    public Set<Node> upstreamNodes(NodeNetwork network, NodeLayer layer) {
+        return layer.getUpstream(network).get(connections.keySet());
     }
 
     public void offsetBias(double offset) {
